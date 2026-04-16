@@ -34,7 +34,8 @@ from transformer.Models import Transformer
 # ================================================================
 # CONFIG
 # ================================================================
-MODEL_PATH = "d:/research/tc_output/models/tc_ensemble_full.pt"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "tc_ensemble_full.pt")
 for mp in [MODEL_PATH, "models/tc_ensemble_full.pt",
            "tc_output/models/tc_ensemble_full.pt",
            "../tc_output/models/tc_ensemble_full.pt"]:
@@ -164,10 +165,11 @@ def print_result(patient_name, predicted, confidence, all_probs):
 def get_scaler():
     """Load dataset goc de tinh mean/std cho StandardScaler."""
     from sklearn.preprocessing import StandardScaler
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     data_paths = [
-        "d:/research/TC/dataset/Arrhythmia_raw_clean.csv",
+        os.path.join(BASE_DIR, "Arrhythmia_raw_clean.csv"),
+        os.path.join(BASE_DIR, "data", "Arrhythmia_raw_clean.csv"),
         "dataset/Arrhythmia_raw_clean.csv",
-        "../TC/dataset/Arrhythmia_raw_clean.csv",
     ]
     for p in data_paths:
         if os.path.exists(p):
@@ -213,11 +215,18 @@ def option_manual_input(nets, index_list, n_chains, config, metadata, scaler):
         if user_input.lower() == 'demo1':
             # Mau binh thuong tu dataset
             if scaler is not None:
-                raw = np.loadtxt("d:/research/TC/dataset/Arrhythmia_raw_clean.csv",
-                                 delimiter=',', dtype=np.float32)
-                normal_idx = np.where(raw[:, -1] == 1)[0]
-                patient_data = raw[normal_idx[0], :-1]
-                patient_name = "MAU DEMO - Benh nhan binh thuong"
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                data_pth = os.path.join(BASE_DIR, "Arrhythmia_raw_clean.csv")
+                b_pth = os.path.join(BASE_DIR, "data", "Arrhythmia_raw_clean.csv")
+                dp = data_pth if os.path.exists(data_pth) else b_pth if os.path.exists(b_pth) else "Arrhythmia_raw_clean.csv"
+                try:
+                    raw = np.loadtxt(dp, delimiter=',', dtype=np.float32)
+                    normal_idx = np.where(raw[:, -1] == 1)[0]
+                    patient_data = raw[normal_idx[0], :-1]
+                    patient_name = "MAU DEMO - Benh nhan binh thuong"
+                except:
+                    print("  [LOI] Khong tim thay dataset de lay mau!")
+                    continue
             else:
                 print("  [LOI] Khong tim thay dataset de lay mau!")
                 continue
@@ -225,17 +234,24 @@ def option_manual_input(nets, index_list, n_chains, config, metadata, scaler):
         elif user_input.lower() == 'demo2':
             # Mau co benh tu dataset
             if scaler is not None:
-                raw = np.loadtxt("d:/research/TC/dataset/Arrhythmia_raw_clean.csv",
-                                 delimiter=',', dtype=np.float32)
-                sick_idx = np.where(raw[:, -1] == 10)[0]
-                if len(sick_idx) > 0:
-                    patient_data = raw[sick_idx[0], :-1]
-                    patient_name = "MAU DEMO - Benh nhan co benh (Block nhanh phai)"
-                else:
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                data_pth = os.path.join(BASE_DIR, "Arrhythmia_raw_clean.csv")
+                b_pth = os.path.join(BASE_DIR, "data", "Arrhythmia_raw_clean.csv")
+                dp = data_pth if os.path.exists(data_pth) else b_pth if os.path.exists(b_pth) else "Arrhythmia_raw_clean.csv"
+                try:
+                    raw = np.loadtxt(dp, delimiter=',', dtype=np.float32)
+                    sick_idx = np.where(raw[:, -1] == 10)[0]
+                    if len(sick_idx) > 0:
+                        patient_data = raw[sick_idx[0], :-1]
+                        patient_name = "MAU DEMO - Benh nhan co benh (Block nhanh phai)"
+                    else:
+                        print("  [LOI] Khong tim thay mau benh!")
+                        continue
+                except:
                     print("  [LOI] Khong tim thay mau benh!")
                     continue
             else:
-                print("  [LOI] Khong tim thay dataset!")
+                print("  [LOI] Khong tim thay dataset de lay mau!")
                 continue
 
         elif user_input.lower() == 'random':
@@ -366,7 +382,9 @@ def option_demo(nets, index_list, n_chains, config, metadata, scaler):
     n_classes = metadata["n_classes"]
 
     raw = None
-    for p in ["d:/research/TC/dataset/Arrhythmia_raw_clean.csv",
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    for p in [os.path.join(BASE_DIR, "Arrhythmia_raw_clean.csv"),
+              os.path.join(BASE_DIR, "data", "Arrhythmia_raw_clean.csv"),
               "dataset/Arrhythmia_raw_clean.csv"]:
         if os.path.exists(p):
             raw = np.loadtxt(p, delimiter=',', dtype=np.float32)
