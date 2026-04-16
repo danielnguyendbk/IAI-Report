@@ -1,0 +1,8 @@
+!git clone https://github.com/Lawliet-zzl/TC.git
+!git clone -b daniel https://github.com/danielnguyendbk/IAI-Report.git
+!mkdir -p TC/dataset
+!cp IAI-Report/code/data/Arrhythmia_raw_clean.csv TC/dataset/
+%cd TC
+
+
+!zip -r tc_output.zip models/ results/
