@@ -1,0 +1,28 @@
+# Python temporary files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyTorch large model weights (should not be pushed to GitHub)
+*.pt
+*.pth
+code/models/
+models/
+docx_out/
+
+# Results data (if you want each user to generate locally)
+# code/results/
+# results/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# IDE configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

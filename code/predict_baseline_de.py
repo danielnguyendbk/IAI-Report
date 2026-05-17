@@ -30,17 +30,16 @@ ARRHYTHMIA_NAMES = {
     11: "Block AV do 2", 12: "Block AV do 3"
 }
 
-# Ngưỡng lâm sàng (Chung mâm với file An)
+# Ngưỡng lâm sàng 
 THRESHOLD_HIGH = 34.7
 THRESHOLD_MID = 20.8
 THRESHOLD_LOW = 11.5
 
 def clinical_label(confidence):
-    if confidence >= THRESHOLD_HIGH: return "[OK] BINH THUONG -- Du lieu an toan do tin cay cao"
-    elif confidence >= THRESHOLD_MID: return "[??] CAN THEO DOI -- Phan tan ket qua hoac bat dong mo hinh"
-    elif confidence >= THRESHOLD_LOW: return "[!!] KHONG CHAC CHAN -- Muc do rui ro cao can can thiep!"
-    else: return "[XX] CANH BAO OOD -- Du lieu ngoai phan phoi (Out-of-Distribution)"
-
+    if confidence >= THRESHOLD_HIGH: return "[OK] BINH THUONG -- AI tu tin, du lieu hop le"
+    elif confidence >= THRESHOLD_MID: return "[??] CAN THEO DOI -- Nen kiem tra them"
+    elif confidence >= THRESHOLD_LOW: return "[!!] KHONG CHAC CHAN -- BAO BAC SI kiem tra lai!"
+    else: return "[XX] CANH BAO OOD -- Du lieu BAT THUONG, KHONG tin tuong!"
 # ================================================================
 # MODEL ARCHITECTURE (Phai trung khop voi train_baseline_de.py)
 # ================================================================

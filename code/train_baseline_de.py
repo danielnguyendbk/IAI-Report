@@ -12,6 +12,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime
 
+# Import module dung chung cua nhom
+from dataset import DataPipeline
+from ood_generator import OODConfig, OODGenerator
+
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     try: sys.stdout.reconfigure(encoding='utf-8')
     except: pass
@@ -21,12 +25,12 @@ if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
 # CONFIGURATION
 # ================================================================
 SEED = 42
-DEVICE = torch.device("cpu") # Ep chay CPU de tranh treo may tren Windows
+DEVICE = torch.device("cpu") 
 
 CONFIG = {
     "epochs": 40,
     "batch_size": 32,
-    "d_model": 32,   # Embedded dimension tung dac trung
+    "d_model": 32,   
     "n_head": 4,
     "n_layers": 2,
     "dropout": 0.1,
@@ -61,36 +65,45 @@ def load_data():
     if not filepath: raise FileNotFoundError(f"Khong tim thay CSV! Cac duong dan da thu: {DATA_PATHS}")
     
     print(f"[*] Tai du lieu tu file .../{os.path.basename(filepath)}")
-    data = np.loadtxt(filepath, delimiter=',', dtype=np.float32)
-    X = data[:, :-1]
-    y = data[:, -1].astype(int)
-
-    n_samples, n_features = X.shape
-    unique_labels = np.unique(y)
-    n_classes = len(unique_labels)
     
-    # Reindex nhan
+    # 1. Chay Pipeline tai va chuan hoa du lieu ID chung cua nhom
+    pipeline = DataPipeline(filepath, random_state=SEED)
+    bundle = pipeline.run()
+    n_features = bundle.X_train.shape[1]
+    
+    # Reindex nhan ve 0 -> C-1 (Bat buoc cho PyTorch CrossEntropyLoss)
+    unique_labels = np.unique(np.concatenate((bundle.y_train, bundle.y_test)))
+    n_classes = len(unique_labels)
     label_map = {old: new for new, old in enumerate(sorted(unique_labels))}
-    y = np.array([label_map[l] for l in y])
-
-    train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.2, random_state=SEED, stratify=y)
-    scaler = StandardScaler()
-    train_X = scaler.fit_transform(train_X)
-    test_X = scaler.transform(test_X)
-
-    for arr in [train_X, test_X]:
+    
+    y_train_mapped = np.array([label_map[l] for l in bundle.y_train])
+    y_test_mapped = np.array([label_map[l] for l in bundle.y_test])
+    
+    # Kiem tra va xu ly NaN/Inf (de phong)
+    for arr in [bundle.X_train, bundle.X_test]:
         arr[np.isnan(arr)] = 0
         arr[np.isinf(arr)] = 0
-
+    
+    # 2. Sinh du lieu test OOD su dung OODGenerator chung
+    generator_noise = OODGenerator(OODConfig(method='noise', noise_std=CONFIG["ood_noise_std"], random_state=SEED))
+    generator_shuffle = OODGenerator(OODConfig(method='shuffle', random_state=SEED))
+    
+    # Them distribution shift tuong tu code cu
     rng = np.random.default_rng(SEED)
-    ood_noise = rng.normal(0, CONFIG["ood_noise_std"], (len(test_X), n_features)).astype(np.float32)
-    OOD_y = np.zeros(len(ood_noise), dtype=int)
-
-    trainloader = DataLoader(TabularDataset(train_X, train_y), batch_size=CONFIG["batch_size"], shuffle=True)
-    testloader = DataLoader(TabularDataset(test_X, test_y), batch_size=CONFIG["batch_size"], shuffle=False)
-    oodloader = DataLoader(TabularDataset(ood_noise, OOD_y), batch_size=CONFIG["batch_size"], shuffle=False)
-
-    y_dim = n_classes if n_classes > 2 else 3 # Tuong thich voi repo goc
+    ood_shift = bundle.X_test + rng.normal(2.0, 1.0, bundle.X_test.shape).astype(np.float32)
+    
+    ood_noise_data = generator_noise.generate(bundle.X_test)
+    ood_shuffle_data = generator_shuffle.generate(bundle.X_test)
+    
+    OOD_X = np.vstack([ood_noise_data, ood_shuffle_data, ood_shift])
+    OOD_y = np.zeros(len(OOD_X), dtype=int)
+    
+    # 3. Phuc vu DataLoaders
+    trainloader = DataLoader(TabularDataset(bundle.X_train, y_train_mapped), batch_size=CONFIG["batch_size"], shuffle=True)
+    testloader = DataLoader(TabularDataset(bundle.X_test, y_test_mapped), batch_size=CONFIG["batch_size"], shuffle=False)
+    oodloader = DataLoader(TabularDataset(OOD_X, OOD_y), batch_size=CONFIG["batch_size"], shuffle=False)
+    
+    y_dim = n_classes if n_classes > 2 else 3 
     return trainloader, testloader, oodloader, n_features, y_dim
 
 # ================================================================

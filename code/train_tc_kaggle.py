@@ -30,6 +30,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime
 
+# Import module danh gia OOD chung cua Thai (evaluate_metrics.py)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from evaluate_metrics import evaluate_ood
+
 # Fix Windows encoding
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -55,9 +59,10 @@ DATA_PATHS = [
     "data/Arrhythmia_raw_clean.csv",                          # Chay tu thu muc code/
 ]
 
-# Thu muc output
-OUTPUT_DIR = "results"
-MODEL_DIR = "models"
+# Thu muc output luon huong vao code/results va code/models
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(BASE_DIR, "results")
+MODEL_DIR = os.path.join(BASE_DIR, "models")
 
 # TC Hyperparameters
 CONFIG = {
@@ -331,50 +336,35 @@ def test_accuracy(dataloader, w_idx, s_idx, net):
 
 
 # ================================================================
-# 4. AUROC (from evaluation.py, fixed np.float)
+# 4. AUROC — Su dung evaluate_metrics.py cua Thai (nhanh x100)
 # ================================================================
-
-def auroc_score(id_scores, ood_scores, precision=100000):
-    end = max(np.max(id_scores), np.max(ood_scores))
-    start = min(np.min(id_scores), np.min(ood_scores))
-    gap = (end - start) / precision
-    auroc_val = 0.0
-    fpr_temp = 1.0
-    for delta in np.arange(start, end, gap):
-        tpr = np.sum(id_scores >= delta) / float(len(id_scores))
-        fpr = np.sum(ood_scores > delta) / float(len(ood_scores))
-        auroc_val += (-fpr + fpr_temp) * tpr
-        fpr_temp = fpr
-    auroc_val += fpr * tpr
-    return auroc_val * 100
-
-
-def detection_error(id_scores, ood_scores, precision=100000):
-    end = max(np.max(id_scores), np.max(ood_scores))
-    start = min(np.min(id_scores), np.min(ood_scores))
-    gap = (end - start) / precision
-    err = 1.0
-    for delta in np.arange(start, end, gap):
-        tpr = np.sum(id_scores < delta) / float(len(id_scores))
-        err2 = np.sum(ood_scores > delta) / float(len(ood_scores))
-        err = min(err, (tpr + err2) / 2.0)
-    return err * 100
+# Da import evaluate_ood tu evaluate_metrics.py o tren.
+# Ham nay xu ly vector hoa bang scikit-learn, nhanh gap ~100 lan
+# so voi vong lap thu cong qua 100,000 buoc.
 
 
 # ================================================================
 # 5. CLINICAL LABEL (Nhan lam sang cho du doan)
 # ================================================================
 
+# Nguong lam sang thong nhat voi predict_baseline_de.py va predict_interactive.py
+# Dua tren phan phoi xac suat thuc te voi 13 classes
+THRESHOLD_HIGH = 0.347   # = 34.7%
+THRESHOLD_MID  = 0.208   # = 20.8%
+THRESHOLD_LOW  = 0.115   # = 11.5%
+
+
 def clinical_label(confidence):
-    """Chuyen confidence score thanh nhan lam sang."""
-    if confidence >= 0.9:
-        return "Rat chac chan (Very High Confidence)"
-    elif confidence >= 0.7:
-        return "Chac chan (High Confidence)"
-    elif confidence >= 0.5:
-        return "Khong chac chan - Nen hoi bac si (Uncertain - Consult Doctor)"
+    """Chuyen confidence score (raw float 0-1) thanh nhan lam sang.
+    Thong nhat voi predict_interactive.py va predict_baseline_de.py."""
+    if confidence >= THRESHOLD_HIGH:
+        return "[OK] BINH THUONG -- AI tu tin, du lieu hop le"
+    elif confidence >= THRESHOLD_MID:
+        return "[??] CAN THEO DOI -- Nen kiem tra them"
+    elif confidence >= THRESHOLD_LOW:
+        return "[!!] KHONG CHAC CHAN -- BAO BAC SI kiem tra lai!"
     else:
-        return "Canh bao OOD - Du lieu bat thuong! (OOD Warning - Anomaly!)"
+        return "[XX] CANH BAO OOD -- Du lieu BAT THUONG, KHONG tin tuong!"
 
 
 # ================================================================
@@ -439,8 +429,10 @@ def main():
             print("      Score collapse, stopping.")
             break
 
-        aur = auroc_score(id_sc, ood_sc)
-        det = detection_error(id_sc, ood_sc)
+        # Su dung evaluate_ood cua Thai thay vi vong lap thu cong (nhanh gap ~100 lan)
+        metrics = evaluate_ood(id_sc, ood_sc)
+        aur = metrics.auroc * 100
+        det = metrics.detection_error * 100
         gap = float(np.mean(id_sc) - np.mean(ood_sc))
 
         print(f"      Acc: {acc:.1f}%, AUROC: {aur:.1f}%, DetErr: {det:.1f}%, Gap: {gap:.4f}")
@@ -473,8 +465,10 @@ def main():
 
     ens_id = get_ensemble_scores(testloader, index_list, nets, n_chains, temp)
     ens_ood = get_ensemble_scores(oodloader, index_list, nets, n_chains, temp)
-    ens_auroc = auroc_score(ens_id, ens_ood)
-    ens_det = detection_error(ens_id, ens_ood)
+    # Tinh chi so Ensemble bang evaluate_ood cua Thai
+    ens_metrics = evaluate_ood(ens_id, ens_ood)
+    ens_auroc = ens_metrics.auroc * 100
+    ens_det = ens_metrics.detection_error * 100
 
     print(f"  AUROC: {ens_auroc:.2f}%")
     print(f"  Detection Error: {ens_det:.2f}%")
@@ -573,10 +567,10 @@ def main():
             "confidence_gap": round(float(np.mean(ens_id) - np.mean(ens_ood)) * 100, 2),
         },
         "clinical_thresholds": {
-            ">=90%": "Rat chac chan → Tin tuong ket qua",
-            "70-89%": "Chac chan → Tin tuong nhung nen theo doi",
-            "50-69%": "Khong chac chan → BAO BAC SI kiem tra lai",
-            "<50%": "CANH BAO OOD → Du lieu bat thuong, KHONG tin tuong!"
+            f">={THRESHOLD_HIGH*100:.1f}%": "[OK] BINH THUONG -- AI tu tin, du lieu hop le",
+            f">={THRESHOLD_MID*100:.1f}%":  "[??] CAN THEO DOI -- Nen kiem tra them",
+            f">={THRESHOLD_LOW*100:.1f}%":  "[!!] KHONG CHAC CHAN -- BAO BAC SI kiem tra lai!",
+            f"<{THRESHOLD_LOW*100:.1f}%":   "[XX] CANH BAO OOD -- Du lieu BAT THUONG, KHONG tin tuong!"
         },
         "per_chain_results": chain_results,
         "id_predictions": id_predictions[:50],     # Giu 50 mau dau de file khong qua lon
