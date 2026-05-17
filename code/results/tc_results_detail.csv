@@ -3,19 +3,21 @@ Dataset,Arrhythmia_raw_clean
 N_features,279
 N_classes,13
 N_chains,10
-Ensemble AUROC (%),84.09
-Ensemble DetErr (%),25.64
-Avg Conf ID (%),37.70
-Avg Conf OOD (%),23.62
-Gap (%),14.08
+q,0.5
+Epochs,50
+Ensemble AUROC (%),85.03
+Ensemble Detection Error (%),23.81
+Avg Confidence ID (%),37.61
+Avg Confidence OOD (%),23.03
+Confidence Gap (%),14.58
 ---,---
-Chain 1,AUROC=78.66%
-Chain 2,AUROC=72.29%
-Chain 3,AUROC=78.07%
-Chain 4,AUROC=80.03%
-Chain 5,AUROC=79.9%
-Chain 6,AUROC=79.04%
-Chain 7,AUROC=80.16%
-Chain 8,AUROC=77.64%
-Chain 9,AUROC=77.48%
-Chain 10,AUROC=65.0%
+Chain 1,"Acc=61.54%, AUROC=78.66%"
+Chain 2,"Acc=61.54%, AUROC=77.44%"
+Chain 3,"Acc=63.74%, AUROC=79.21%"
+Chain 4,"Acc=62.64%, AUROC=75.82%"
+Chain 5,"Acc=61.54%, AUROC=78.33%"
+Chain 6,"Acc=56.04%, AUROC=80.8%"
+Chain 7,"Acc=54.95%, AUROC=80.96%"
+Chain 8,"Acc=54.95%, AUROC=81.24%"
+Chain 9,"Acc=54.95%, AUROC=81.91%"
+Chain 10,"Acc=53.85%, AUROC=74.39%"
